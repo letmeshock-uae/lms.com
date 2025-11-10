@@ -3,25 +3,30 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Portfolio — letmeshock</title>
+  <meta name="theme-color" content="#000000" />
+  <title>letmeshock — design lead portfolio</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <img class="bg" src="https://letmeshock.ru/wp-content/uploads/2025/11/background.jpg" alt="" />
+  <canvas id="points" aria-hidden="true"></canvas>
 
   <main class="wrap">
-    <h1>
-      <span>Dubai-based <span class="design-lead">design lead</span> with 15+ years…</span>
+    <p class="eyebrow">Portfolio 2025</p>
+    <h1 class="headline">
+      Dubai-based <span class="design-lead" data-photo="assets/author.jpg">design lead</span> crafting strategy, product, and brand systems for teams shipping
+      what doesn’t exist yet.
     </h1>
-    <p>I help startups and companies navigate uncertainty by building design where nothing exists yet — from concept and presale to a working, scalable product.</p>
-    <p>My work bridges strategy and execution, giving shape to ideas that don’t yet have form.</p>
-    <p>Setting up design operations… structure and clarity take over.</p>
-    <p>✍️ <a href="https://t.me/letmeshock" target="_blank" rel="noopener">Telegram</a></p>
-
-    <img class="author" src="assets/author.jpg" alt="Author" />
+    <p>I help founders and product leaders navigate zero-to-one moments, translating raw ideas into coherent launches that feel inevitable.</p>
+    <p>From vision decks to operational design playbooks, I align research, prototyping, and delivery so momentum never breaks.</p>
+    <p class="contact">✍️ <a href="https://t.me/letmeshock" target="_blank" rel="noopener">Telegram</a> · <a href="mailto:hello@letmeshock.com">Email</a></p>
   </main>
 
-  <canvas id="points"></canvas>
-  <script src="main.js"></script>
+  <div id="author-float" aria-hidden="true">
+    <img src="assets/author.jpg" alt="" loading="lazy" />
+  </div>
+
+  <div id="popup-layer" aria-live="polite"></div>
+
+  <script src="main.js" type="module"></script>
 </body>
 </html>
