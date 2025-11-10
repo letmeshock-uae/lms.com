@@ -1,0 +1,10 @@
+html,body {height:100%;margin:0;background:#000;color:#eaeaea;font:16px/1.4 system-ui, sans-serif;}
+.bg{position:fixed;inset:0;object-fit:cover;filter:contrast(1.05) brightness(0.9);}
+.wrap{position:relative;z-index:2;max-width:900px;margin:8vh auto;padding:0 24px;}
+a{color:#eaff01;text-decoration:none;border-bottom:1px solid #eaff01}
+a:hover{opacity:.85}
+.design-lead{border-bottom:1px dashed #888;cursor:help}
+.author{position:absolute;left:0;top:0;transform:translate(0,-120%) scale(.98);
+       width:220px;border-radius:16px;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:.25s}
+.design-lead:hover ~ .author{opacity:1;transform:translate(0,-120%) scale(1)}
+#points{position:fixed;inset:0;z-index:3;pointer-events:auto}
