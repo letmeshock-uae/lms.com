@@ -1,51 +1,112 @@
 import * as THREE from "three";
+import { gsap } from "gsap";
 import planeVertex from "./shaders/plane.vert?raw";
 import planeFragment from "./shaders/plane.frag?raw";
 import pointsVertex from "./shaders/points.vert?raw";
 import pointsFragment from "./shaders/points.frag?raw";
 
 const BACKGROUND_URL = "https://letmeshock.ru/wp-content/uploads/2025/11/background.jpg";
-const INTERACTIVE_INDICES = [2, 7, 13, 18, 26, 33];
+const INTERACTIVE_INDICES = [1, 4, 7, 9, 12, 15, 19, 23, 27, 30, 34, 37];
+const MAGNET_THRESHOLD = 80;
+const MAGNET_PULL = 0.35;
 const POINT_TOTAL = 40;
 
-const projects = [
+const baseProjects = [
   {
+    slug: "project1",
     title: "Metaverse Concierge",
     description: "A cross-reality onboarding funnel aligning 3D, product, and brand surfaces.",
-    media: "assets/portfolio/project1.jpg",
-    type: "image",
   },
   {
+    slug: "project2",
     title: "AI Ops Cockpit",
     description: "Realtime observability with adaptive automation patterns for lean teams.",
-    media: "assets/portfolio/project2.jpg",
-    type: "image",
   },
   {
+    slug: "project3",
     title: "Fintech Origination",
     description: "Borrower journeys reimagined with trust micro-interactions and audit trails.",
-    media: "assets/portfolio/project3.jpg",
-    type: "image",
   },
   {
+    slug: "project4",
     title: "Mobility Cloud",
     description: "Fleet intelligence dashboard scaling from pilots to global deployments.",
-    media: "assets/portfolio/project4.jpg",
-    type: "image",
   },
   {
+    slug: "project5",
     title: "Healthcare OS",
     description: "Clinical workflows unified around signal-based care loops and metrics.",
-    media: "assets/portfolio/project5.jpg",
-    type: "image",
   },
   {
+    slug: "project6",
     title: "Immersive Retail",
     description: "Spatial storytelling bridging physical retail and digital loyalty.",
-    media: "assets/portfolio/project6.jpg",
-    type: "image",
   },
 ];
+
+const portfolioModules = import.meta.glob("@portfolio/*.{jpg,jpeg,png,mp4,webm}", {
+  eager: true,
+  import: "default",
+});
+
+const projects = buildProjects();
+
+function getRandomProject() {
+  if (!projects.length) return null;
+  const index = Math.floor(Math.random() * projects.length);
+  return projects[index];
+}
+
+if (!projects.length) {
+  console.warn("No portfolio assets were resolved from @portfolio. Popups will be disabled.");
+}
+
+const zeroVector = new THREE.Vector3(0, 0, 0);
+const tempVec2A = new THREE.Vector2();
+const tempVec2B = new THREE.Vector2();
+const tempVec3A = new THREE.Vector3();
+const tempVec3B = new THREE.Vector3();
+const tempVec3C = new THREE.Vector3();
+const tempVec3D = new THREE.Vector3();
+const tempVec3E = new THREE.Vector3();
+const pointerRay = new THREE.Ray();
+const pointerPlane = new THREE.Plane();
+
+function buildProjects() {
+  const baseMap = new Map(baseProjects.map((entry) => [entry.slug, entry]));
+  const entries = Object.entries(portfolioModules);
+
+  if (!entries.length) {
+    return baseProjects.map((entry) => ({
+      title: entry.title,
+      description: entry.description,
+      media: `assets/portfolio/${entry.slug}.jpg`,
+      type: "image",
+    }));
+  }
+
+  return entries
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([path, url]) => {
+      const fileName = path.split("/").pop() ?? "";
+      const [rawSlug = "project"] = fileName.split(".");
+      const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+      const type = extension === "mp4" || extension === "webm" ? "video" : "image";
+      const meta = baseMap.get(rawSlug) ?? {
+        title: rawSlug
+          .replace(/[-_]+/g, " ")
+          .replace(/\b\w/g, (char) => char.toUpperCase()),
+        description: "Exploratory concept from the studio archive.",
+      };
+
+      return {
+        title: meta.title,
+        description: meta.description,
+        media: url,
+        type,
+      };
+    });
+}
 
 const designLead = document.querySelector(".design-lead");
 const authorFloat = document.getElementById("author-float");
@@ -60,6 +121,7 @@ const state = {
   pointsMaterial: null,
   points: null,
   pointData: [],
+  positionArray: null,
   scaleArray: null,
   scaleTargets: null,
   colorArray: null,
@@ -68,13 +130,15 @@ const state = {
   hoverPointWorld: null,
   pointerNDC: new THREE.Vector2(),
   pointerUv: new THREE.Vector2(0.5, 0.5),
+  pointerScreen: new THREE.Vector2(window.innerWidth / 2, window.innerHeight / 2),
+  pointerActive: false,
   raycaster: new THREE.Raycaster(),
   clock: new THREE.Clock(),
   popupTimer: null,
   activePopup: null,
 };
 
-state.raycaster.params.Points = { threshold: 0.12 };
+state.raycaster.params.Points = { threshold: 0.16 };
 
 init();
 
@@ -95,19 +159,40 @@ function initDesignLeadHover() {
     img.src = designLead.dataset.photo;
   }
 
+  const quickLeft = gsap.quickTo(authorFloat, "left", {
+    duration: 0.38,
+    ease: "expo.out",
+  });
+  const quickTop = gsap.quickTo(authorFloat, "top", {
+    duration: 0.38,
+    ease: "expo.out",
+  });
+
+  gsap.set(authorFloat, { autoAlpha: 0, scale: 0.85 });
+
   const updatePosition = (event) => {
-    authorFloat.style.left = `${event.clientX}px`;
-    authorFloat.style.top = `${event.clientY}px`;
+    quickLeft(event.clientX);
+    quickTop(event.clientY);
   };
 
   designLead.addEventListener("pointerenter", (event) => {
     updatePosition(event);
-    authorFloat.classList.add("is-visible");
+    gsap.to(authorFloat, {
+      duration: 0.4,
+      autoAlpha: 1,
+      scale: 1,
+      ease: "expo.out",
+    });
   });
 
   designLead.addEventListener("pointermove", updatePosition);
   designLead.addEventListener("pointerleave", () => {
-    authorFloat.classList.remove("is-visible");
+    gsap.to(authorFloat, {
+      duration: 0.28,
+      autoAlpha: 0,
+      scale: 0.85,
+      ease: "power2.out",
+    });
   });
 }
 
@@ -172,11 +257,14 @@ function createPoints() {
   const seeds = new Float32Array(pointCount);
   const phases = new Float32Array(pointCount);
 
+  let projectCursor = 0;
+
   const accent = new THREE.Color("#EAFF01");
   const accentDim = accent.clone().multiplyScalar(0.68);
   const baseColor = new THREE.Color(0xffffff).multiplyScalar(0.75);
 
   state.pointData = [];
+  state.positionArray = positions;
   state.scaleArray = scales;
   state.scaleTargets = new Float32Array(pointCount);
   state.colorArray = colors;
@@ -214,11 +302,15 @@ function createPoints() {
     state.pointData.push({
       index: i,
       basePosition: new THREE.Vector3(x, y, z),
+      offset: new THREE.Vector3(),
       interactive: isInteractive,
       highlightColor: accent.clone(),
       baseColor: base.clone(),
       baseScale,
-      project: isInteractive ? projects[interactiveIndex] : null,
+      project:
+        isInteractive && projects.length
+          ? projects[(projectCursor++) % projects.length]
+          : null,
     });
   }
 
@@ -273,6 +365,9 @@ function onPointerMove(event) {
   const x = event.clientX;
   const y = event.clientY;
 
+  state.pointerActive = true;
+  state.pointerScreen.set(x, y);
+
   state.pointerNDC.x = (x / window.innerWidth) * 2 - 1;
   state.pointerNDC.y = -(y / window.innerHeight) * 2 + 1;
 
@@ -304,6 +399,8 @@ function onPointerLeave() {
   if (state.planeMaterial) {
     state.planeMaterial.uniforms.uPointer.value.copy(state.pointerUv);
   }
+  state.pointerActive = false;
+  state.pointerScreen.set(window.innerWidth / 2, window.innerHeight / 2);
   updateHoverState(-1, null);
 }
 
@@ -361,23 +458,43 @@ function onClick(event) {
   if (state.hoveredIndex === -1) return;
 
   const data = state.pointData[state.hoveredIndex];
-  if (!data || !data.project) return;
+  if (!data) return;
 
   event.preventDefault();
 
   const worldPosition = state.hoverPointWorld
-    ? state.hoverPointWorld.clone()
-    : data.basePosition.clone();
+    ? tempVec3A.copy(state.hoverPointWorld)
+    : tempVec3A.copy(data.basePosition).add(data.offset);
 
-  const screenPosition = projectToScreen(worldPosition);
-  openPopup(data.project, screenPosition);
+  const screenPosition = projectToScreen(worldPosition, tempVec2B);
+  const project = data.project ?? getRandomProject();
+  if (!project) return;
+
+  openPopup(project, screenPosition);
 }
 
-function projectToScreen(vector) {
-  const projected = vector.clone().project(state.camera);
-  const x = (projected.x * 0.5 + 0.5) * window.innerWidth;
-  const y = (-projected.y * 0.5 + 0.5) * window.innerHeight;
-  return { x, y };
+function projectToScreen(vector, target = new THREE.Vector2()) {
+  tempVec3C.copy(vector).project(state.camera);
+  target.set(
+    (tempVec3C.x * 0.5 + 0.5) * window.innerWidth,
+    (-tempVec3C.y * 0.5 + 0.5) * window.innerHeight
+  );
+  return target;
+}
+
+function screenToWorldAtZ(x, y, z, target = new THREE.Vector3()) {
+  if (!state.camera) return null;
+
+  tempVec3E.set((x / window.innerWidth) * 2 - 1, -(y / window.innerHeight) * 2 + 1, 0.5);
+  pointerRay.origin.copy(state.camera.position);
+  pointerRay.direction
+    .copy(tempVec3E.unproject(state.camera))
+    .sub(state.camera.position)
+    .normalize();
+
+  pointerPlane.set(new THREE.Vector3(0, 0, 1), -z);
+  const intersection = pointerRay.intersectPlane(pointerPlane, target);
+  return intersection ?? null;
 }
 
 function animate() {
@@ -401,7 +518,72 @@ function animate() {
 }
 
 function updatePointAttributes() {
-  if (!state.points) return;
+  if (!state.points || !state.camera) return;
+
+  const positionsAttr = state.points.geometry.attributes.position;
+  const positions = state.positionArray;
+
+  let needsPositionUpdate = false;
+  const pointerActive = state.pointerActive;
+
+  for (let i = 0; i < state.pointData.length; i += 1) {
+    const data = state.pointData[i];
+    if (!data) continue;
+
+    const isInteractive = data.interactive;
+
+    tempVec3D.copy(data.basePosition).add(data.offset);
+
+    if (isInteractive) {
+      if (pointerActive) {
+        const screenPosition = projectToScreen(tempVec3D, tempVec2A);
+        const distance = screenPosition.distanceTo(state.pointerScreen);
+
+        if (distance < MAGNET_THRESHOLD) {
+          const influence = 1 - distance / MAGNET_THRESHOLD;
+          const targetWorld = screenToWorldAtZ(
+            state.pointerScreen.x,
+            state.pointerScreen.y,
+            tempVec3D.z,
+            tempVec3B
+          );
+
+          if (targetWorld) {
+            tempVec3B.sub(data.basePosition);
+            const strength = MAGNET_PULL * (0.6 + influence * 0.8);
+            tempVec3B.multiplyScalar(strength);
+            data.offset.lerp(tempVec3B, 0.18);
+          } else if (data.offset.lengthSq() > 1e-6) {
+            data.offset.lerp(zeroVector, 0.1);
+          }
+        } else if (data.offset.lengthSq() > 1e-6) {
+          data.offset.lerp(zeroVector, 0.12);
+        }
+      } else if (data.offset.lengthSq() > 1e-6) {
+        data.offset.lerp(zeroVector, 0.1);
+      }
+    } else if (data.offset.lengthSq() > 1e-6) {
+      data.offset.lerp(zeroVector, 0.08);
+    }
+
+    tempVec3D.copy(data.basePosition).add(data.offset);
+
+    const idx3 = i * 3;
+    if (
+      Math.abs(positions[idx3] - tempVec3D.x) > 1e-4 ||
+      Math.abs(positions[idx3 + 1] - tempVec3D.y) > 1e-4 ||
+      Math.abs(positions[idx3 + 2] - tempVec3D.z) > 1e-4
+    ) {
+      positions[idx3] = tempVec3D.x;
+      positions[idx3 + 1] = tempVec3D.y;
+      positions[idx3 + 2] = tempVec3D.z;
+      needsPositionUpdate = true;
+    }
+  }
+
+  if (needsPositionUpdate) {
+    positionsAttr.needsUpdate = true;
+  }
 
   let needsScaleUpdate = false;
   for (let i = 0; i < state.scaleArray.length; i += 1) {
@@ -436,6 +618,10 @@ function onResize() {
 
   if (state.pointsMaterial) {
     state.pointsMaterial.uniforms.uPixelRatio.value = pixelRatio;
+  }
+
+  if (!state.pointerActive) {
+    state.pointerScreen.set(window.innerWidth / 2, window.innerHeight / 2);
   }
 }
 
@@ -475,7 +661,20 @@ function openPopup(project, position) {
   popup.style.top = `${safeY}px`;
 
   popupLayer.appendChild(popup);
-  requestAnimationFrame(() => popup.classList.add("is-visible"));
+  gsap.set(popup, {
+    xPercent: -50,
+    y: -24,
+    scale: 0.88,
+    autoAlpha: 0,
+    transformOrigin: "50% 0%",
+  });
+  gsap.to(popup, {
+    duration: 0.48,
+    autoAlpha: 1,
+    scale: 1,
+    y: -12,
+    ease: "expo.out",
+  });
 
   popup.querySelector("button")?.addEventListener("click", closePopup);
 
@@ -498,9 +697,16 @@ function closePopup() {
   if (!state.activePopup) return;
 
   const target = state.activePopup;
-  target.classList.remove("is-visible");
-  setTimeout(() => target.remove(), 250);
-
   state.activePopup = null;
+
+  gsap.to(target, {
+    duration: 0.32,
+    autoAlpha: 0,
+    scale: 0.84,
+    y: -28,
+    ease: "power2.inOut",
+    onComplete: () => target.remove(),
+  });
+
   popupLayer?.classList.remove("has-popup");
 }
